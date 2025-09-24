@@ -1,0 +1,148 @@
+{
+  "name": "Kafka+postgresql",
+  "nodes": [
+    {
+      "parameters": {
+        "topic": "documents",
+        "groupId": "n8n-client",
+        "options": {}
+      },
+      "id": "c5a98038-41e0-4713-a715-84f18d485079",
+      "name": "Kafka Trigger",
+      "type": "n8n-nodes-base.kafkaTrigger",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        0
+      ],
+      "credentials": {
+        "kafka": {
+          "id": "9GjMLtsV0VCbvSS5",
+          "name": "Kafka account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const payload = $json.message || $json.payload || $json.body || $json.text || ''; return [{ json: { id: $json.id || String(Date.now()), text: String(payload) } }];"
+      },
+      "id": "414cab44-728b-4c79-92f4-56948493572a",
+      "name": "Preprocess",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "=http://172.21.0.3:11434/api/embed",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{\n  \"model\": \"nomic-embed-text:latest\",\n  \"input\": [\"первый чанк текста\", \"второй чанк текста\"]\n}"
+      },
+      "name": "Ollama Embed1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        128,
+        0
+      ],
+      "id": "9661142f-ad96-4a6a-9d89-a26faafc29d8"
+    },
+    {
+      "parameters": {
+        "functionCode": "const embedding = $json.embeddings[0]; // или пройтись циклом по всем\nreturn [{\n  json: {\n    id: $item(0).$node[\"Preprocess\"].json.id,\n    text: $item(0).$node[\"Preprocess\"].json.text,\n    source: $item(0).$node[\"Preprocess\"].json.source,\n    embedding: '{' + embedding.join(',') + '}'\n  }\n}];"
+      },
+      "id": "80e69bcc-c9af-47f3-b600-cd7cd1eecdc0",
+      "name": "Format Embedding1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        336,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "table": "documents",
+        "columns": "id,text,embedding",
+        "additionalFields": {}
+      },
+      "id": "68ef1277-3098-4845-951b-d8dd9c46a1c2",
+      "name": "Postgres Insert1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        544,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "wujVNwu5jIKjF2n0",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Kafka Trigger": {
+      "main": [
+        [
+          {
+            "node": "Preprocess",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preprocess": {
+      "main": [
+        [
+          {
+            "node": "Ollama Embed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Embed1": {
+      "main": [
+        [
+          {
+            "node": "Format Embedding1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Embedding1": {
+      "main": [
+        [
+          {
+            "node": "Postgres Insert1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "dfedd6d6-b5c0-4675-adce-87c98598ca76",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9ce263ea74ac56142ad0b445edd4996f0dce195bb2058608aecc86f0fd24906f"
+  },
+  "id": "TW8HTaMYRCAEl2GF",
+  "tags": []
+}
